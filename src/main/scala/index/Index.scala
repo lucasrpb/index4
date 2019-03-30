@@ -129,7 +129,6 @@ class Index(val ref: Ref,
 
         ctx.blocks += meta.id -> meta
         ctx.parents += meta.id -> (None, 0)
-
         meta.insert(Seq(
           left.max.get -> left.id,
           right.max.get -> right.id
