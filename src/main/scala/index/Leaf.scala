@@ -77,7 +77,7 @@ class Leaf(val id: B,
 
     keys = keys ++ Array.ofDim[Tuple](len)
 
-    for(i<-0 until data.length){
+    for(i<-0 until len){
       val (k, _) = data(i)
 
       if(find(k, 0, length - 1)._1) return false -> 0
