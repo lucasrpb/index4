@@ -51,7 +51,7 @@ class Meta(val id: B,
   }
 
   def insert(k: B, v: B)(implicit ctx: Context): (Boolean, Int) = {
-    if(isFull()) {
+    if(k.length + v.length > MAX) {
       return false -> 0
     }
 
@@ -85,15 +85,13 @@ class Meta(val id: B,
       return false -> 0
     }
 
-   // val (_, len) = calcMaxLen(data, MAX - size)
-
-    val len = Math.min(data.length, MAX - length)
+    val (_, len) = calcMaxLen(data, MAX - size)
 
     if(len == 0) return false -> 0
 
     pointers = pointers ++ Array.ofDim[Pointer](len)
 
-    for(i<-0 until data.length){
+    for(i<-0 until len){
       val (k, _) = data(i)
 
       if(find(k, 0, length - 1)._1) return false -> 0
@@ -132,10 +130,8 @@ class Meta(val id: B,
 
     ctx.blocks += right.id -> right
 
-    //val half = size/2
-    //val (bytes, len) = calcMaxLen(pointers, half)
-
-    val len = length/2
+    val half = size/2
+    val (bytes, len) = calcMaxLen(pointers, half)
 
     right.pointers = pointers.slice(len, length)
     right.length = right.pointers.length
@@ -160,9 +156,9 @@ class Meta(val id: B,
 
   override def max: Option[B] = Some(pointers(length - 1)._1)
 
-  override def isFull(): Boolean = length >= LIMIT
-  override def isEmpty(): Boolean = length == 0
-  override def hasMinimumSize(): Boolean = length >= MIN
+  override def isFull(): Boolean = size >= LIMIT
+  override def isEmpty(): Boolean = size == 0
+  override def hasMinimumSize(): Boolean = size >= MIN
 
   def inOrder(): Seq[Pointer] = {
     if(isEmpty()) return Seq.empty[Pointer]

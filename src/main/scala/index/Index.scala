@@ -5,18 +5,24 @@ import java.util.UUID
 class Index(val ref: Ref,
             val SIZE: Int)(implicit val ord: Ordering[B], store: Storage) {
 
+  val MAX_KEY_SIZE = 20
   val BLOCK_ADDR_SIZE = 36
 
-  val LEAF_MIN = SIZE/2
+  val LEAF_MIN = (20 * SIZE)/100
   val LEAF_MAX = SIZE
-  val LEAF_LIMIT = SIZE
+  val LEAF_LIMIT = (80 * SIZE)/100
 
-  val META_MIN = SIZE/2
-  val META_MAX = SIZE
-  val META_LIMIT = SIZE
+  val META_MIN = (20 * SIZE)/100 + BLOCK_ADDR_SIZE
+  val META_MAX = 5 * META_MIN
+  val META_LIMIT = (80 * META_MAX)/100
+
+  val MAX_TUPLE_SIZE = LEAF_MIN
 
   var root = ref.root
   var size = ref.size
+
+  println(s"LEAF_MIN $LEAF_MIN LEAF_MAX $LEAF_MAX LEAF_LIMIT $LEAF_LIMIT\n")
+  println(s"META_MIN $META_MIN META_MAX $META_MAX META_LIMIT $META_LIMIT\n")
 
   implicit val ctx = new Context(store)
 
@@ -99,8 +105,6 @@ class Index(val ref: Ref,
 
     if(left.isFull()){
 
-      //println(s"insert parent 1 ${left.size} max ${left.MAX} ${left.inOrder().map{case (k, _) => new String(k)}}\n")
-
       val right = left.split()
 
       if(ord.gt(prev.max.get, left.max.get)){
@@ -111,8 +115,6 @@ class Index(val ref: Ref,
 
       return handleParent(left, right)
     }
-
-    //println(s"insert parent 2\n")
 
     left.insert(Seq(prev.max.get -> prev.id))
 
@@ -133,8 +135,6 @@ class Index(val ref: Ref,
           left.max.get -> left.id,
           right.max.get -> right.id
         ))
-
-       // println(s"new level")
 
         recursiveCopy(meta)
 
@@ -166,12 +166,12 @@ class Index(val ref: Ref,
     val size = sorted.length
     var pos = 0
 
-    /*for(i<-0 until size){
+    for(i<-0 until size){
       val (k, v) = data(i)
       val bytes = k.length + v.length
 
-      if(bytes > LEAF_MIN) return false -> 0
-    }*/
+      if(bytes > MAX_TUPLE_SIZE || k.length > MAX_KEY_SIZE) return false -> 0
+    }
 
     while(pos < size){
 

@@ -19,7 +19,7 @@ class MainSpec extends FlatSpec {
   def test(): Unit = {
     val rand = ThreadLocalRandom.current()
 
-    val SIZE = 10//rand.nextInt(230, 1000)
+    val SIZE = 180//rand.nextInt(230, 1000)
 
     val ref = new AtomicReference(Ref())
 
