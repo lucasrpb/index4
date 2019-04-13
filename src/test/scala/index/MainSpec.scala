@@ -18,7 +18,7 @@ class MainSpec extends FlatSpec {
   def test(): Unit = {
     val rand = ThreadLocalRandom.current()
 
-    val SIZE = 64536//rand.nextInt(400, 2048)
+    val SIZE = rand.nextInt(400, 2048)
 
     implicit val store = new MemoryStorage()
 
@@ -61,6 +61,7 @@ class MainSpec extends FlatSpec {
     val ldata = data.sortBy(_._1).map{case (k, v) => new String(k)}
     val idata = Query.inOrder(ref.get()._1).map{case (k, v) => new String(k)}
 
+    println(s"SIZE ${SIZE} MAX ${SIZE/8 - BLOCK_ID_SIZE}\n")
     println(s"list data $ldata size ${ldata.size}\n")
     println(s"index data ${idata} size ${idata.size}\n")
 
@@ -69,7 +70,7 @@ class MainSpec extends FlatSpec {
 
   "index data " must "be equal to list data" in {
 
-    val n = 1
+    val n = 1000
 
     for(i<-0 until n){
       test()

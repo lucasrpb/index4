@@ -103,7 +103,9 @@ class Meta(override val id: B,
     ctx.blocks += right.id -> right
 
     val half = size/2
-    var (_, len) = calcMaxLen(pointers, half)
+    //var (_, len) = calcMaxLen(pointers, half)
+
+    val len = length/2
 
     assert(len > 0)
 
@@ -123,6 +125,9 @@ class Meta(override val id: B,
   }
 
   def copy()(implicit ctx: Context): Meta = {
+
+    if(ctx.blocks.isDefinedAt(id)) return this
+
     val copy = new Meta(UUID.randomUUID.toString.getBytes, MIN, MAX, LIMIT)
 
     ctx.blocks += copy.id -> copy
