@@ -2,45 +2,31 @@ package index
 
 import java.util.UUID
 
-class Index(val ref: Ref,
-            val SIZE: Int)(implicit val ord: Ordering[B], store: Storage) {
+class Index(var root: Option[B],
+            var size: Int,
+            val SIZE: Int)(implicit ord: Ordering[B], store: Storage) {
 
-  val MAX_KEY_SIZE = 20
-  val BLOCK_ADDR_SIZE = 36
+  val MIN = SIZE/3
+  val MAX = SIZE
+  val LIMIT = 2 * MIN
 
-  val LEAF_MIN = (20 * SIZE)/100
-  val LEAF_MAX = SIZE
-  val LEAF_LIMIT = (80 * SIZE)/100
-
-  val META_MIN = (20 * SIZE)/100 + BLOCK_ADDR_SIZE
-  val META_MAX = 5 * META_MIN
-  val META_LIMIT = (80 * META_MAX)/100
-
-  val MAX_TUPLE_SIZE = LEAF_MIN
-
-  var root = ref.root
-  var size = ref.size
-
-  println(s"LEAF_MIN $LEAF_MIN LEAF_MAX $LEAF_MAX LEAF_LIMIT $LEAF_LIMIT\n")
-  println(s"META_MIN $META_MIN META_MAX $META_MAX META_LIMIT $META_LIMIT\n")
+  val MAX_KEY_SIZE = SIZE/8 - BLOCK_ID_SIZE
 
   implicit val ctx = new Context(store)
-
-  def getRef() = Ref(root, size)
 
   def find(k: B, start: Option[B]): Option[Leaf] = {
     start match {
       case None => None
-      case Some(start) => ctx.get(start).get match {
+      case Some(id) => ctx.get(id).get match {
         case leaf: Leaf => Some(leaf)
         case meta: Meta =>
 
-          val length = meta.length
+          val size = meta.length
           val pointers = meta.pointers
 
-          for(i<-0 until length){
-            val child = pointers(i)._2
-            ctx.parents += child -> (Some(meta.id), i)
+          for(i<-0 until size){
+            val c = pointers(i)._2
+            ctx.parents += c -> (Some(meta.id), i)
           }
 
           find(k, meta.findPath(k))
@@ -60,20 +46,26 @@ class Index(val ref: Ref,
     p match {
       case p: Meta =>
 
-        if(p.size == 1){
+        if(p.length == 1){
           val c = p.pointers(0)._2
           root = Some(c)
+
           ctx.parents += c -> (None, 0)
+
           true
         } else {
           root = Some(p.id)
+
           ctx.parents += p.id -> (None, 0)
+
           true
         }
 
       case p: Leaf =>
         root = Some(p.id)
+
         ctx.parents += p.id -> (None, 0)
+
         true
     }
   }
@@ -83,15 +75,15 @@ class Index(val ref: Ref,
 
     parent match {
       case None => fixRoot(p)
-      case Some(id) =>
-        val PARENT = ctx.getMeta(id).get.copy()
+      case Some(pid) =>
+        val PARENT = ctx.getMeta(pid).get.copy()
         PARENT.setChild(p.max.get, p.id, pos)
         recursiveCopy(PARENT)
     }
   }
 
-  def insertEmptyIndex(data: Seq[Tuple]): (Boolean, Int) = {
-    val p = new Leaf(UUID.randomUUID.toString.getBytes(), LEAF_MIN, LEAF_MAX, LEAF_LIMIT)
+  def insertEmpty(data: Seq[Tuple]): (Boolean, Int) = {
+    val p = new Leaf(UUID.randomUUID.toString.getBytes(), MIN, MAX, LIMIT)
 
     val (ok, n) = p.insert(data)
 
@@ -103,20 +95,21 @@ class Index(val ref: Ref,
 
   def insertParent(left: Meta, prev: Block): Boolean = {
 
-    if(left.isFull()){
+    val data = Seq(prev.max.get -> prev.id)
 
+    if(left.isFull(data)){
       val right = left.split()
 
       if(ord.gt(prev.max.get, left.max.get)){
-        right.insert(Seq(prev.max.get -> prev.id))
+        right.insert(data)
       } else {
-        left.insert(Seq(prev.max.get -> prev.id))
+        left.insert(data)
       }
 
       return handleParent(left, right)
     }
 
-    left.insert(Seq(prev.max.get -> prev.id))
+    left.insert(data)
 
     recursiveCopy(left)
   }
@@ -127,10 +120,11 @@ class Index(val ref: Ref,
     parent match {
       case None =>
 
-        val meta = new Meta(UUID.randomUUID.toString.getBytes(), META_MIN, META_MAX, META_LIMIT)
+        val meta = new Meta(UUID.randomUUID.toString.getBytes(), MIN, MAX, LIMIT)
 
         ctx.blocks += meta.id -> meta
         ctx.parents += meta.id -> (None, 0)
+
         meta.insert(Seq(
           left.max.get -> left.id,
           right.max.get -> right.id
@@ -138,9 +132,9 @@ class Index(val ref: Ref,
 
         recursiveCopy(meta)
 
-      case Some(id) =>
+      case Some(pid) =>
 
-        val PARENT = ctx.getMeta(id).get.copy()
+        val PARENT = ctx.getMeta(pid).get.copy()
         PARENT.setChild(left.max.get, left.id, pos)
 
         insertParent(PARENT, right)
@@ -150,7 +144,7 @@ class Index(val ref: Ref,
   def insertLeaf(leaf: Leaf, data: Seq[Tuple]): (Boolean, Int) = {
     val left = leaf.copy()
 
-    if(leaf.isFull()){
+    if(left.isFull(data)){
       val right = left.split()
       return handleParent(left, right) -> 0
     }
@@ -163,23 +157,23 @@ class Index(val ref: Ref,
   def insert(data: Seq[Tuple]): (Boolean, Int) = {
 
     val sorted = data.sortBy(_._1)
-    val size = sorted.length
+    val length = sorted.length
     var pos = 0
 
-    for(i<-0 until size){
+    for(i<-0 until length){
       val (k, v) = data(i)
       val bytes = k.length + v.length
 
-      if(bytes > MAX_TUPLE_SIZE || k.length > MAX_KEY_SIZE) return false -> 0
+      if(k.length > MAX_KEY_SIZE) return false -> 0
     }
 
-    while(pos < size){
+    while(pos < length){
 
-      var list = sorted.slice(pos, size)
+      var list = sorted.slice(pos, length)
       val (k, _) = list(0)
 
       val (ok, n) = find(k) match {
-        case None => insertEmptyIndex(list)
+        case None => insertEmpty(list)
         case Some(leaf) =>
 
           val idx = list.indexWhere {case (k, _) => ord.gt(k, leaf.max.get)}
@@ -193,9 +187,9 @@ class Index(val ref: Ref,
       pos += n
     }
 
-    this.size += size
+    size += length
 
-    true -> size
+    true -> length
   }
 
 }

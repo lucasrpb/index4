@@ -10,11 +10,16 @@ class MemoryStorage extends Storage {
     blocks.get(id)
   }
 
-  override def put(blocks: TrieMap[B, Block]): Boolean = {
-    blocks.foreach { case (k, v) =>
-      this.blocks += k -> v
+  override def put(bs: TrieMap[B, Block]): Boolean = {
+    bs.foreach { case (k, p) =>
+      blocks.put(k, p)
     }
 
+    true
+  }
+
+  override def put(id: B, p: Block): Boolean = {
+    blocks.put(id, p)
     true
   }
 }

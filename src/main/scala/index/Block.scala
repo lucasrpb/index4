@@ -7,9 +7,9 @@ trait Block {
   var size = 0
   var length = 0
 
-  def isFull(): Boolean
-  def isEmpty(): Boolean
-  def hasMinimumSize(): Boolean
   def max: Option[B]
+  def isFull(data: Seq[Tuple]): Boolean
+  def isEmpty(): Boolean
+  def inOrder(): Seq[Tuple]
 
 }

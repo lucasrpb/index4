@@ -1,9 +1,8 @@
 package object index {
 
+  val BLOCK_ID_SIZE = 36
+
   type B = Array[Byte]
   type Tuple = (B, B)
-  type Pointer = (B, B)
-
-  case class Ref(root: Option[B] = None, size: Int = 0)
 
 }

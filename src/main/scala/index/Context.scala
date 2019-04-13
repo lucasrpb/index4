@@ -8,11 +8,14 @@ class Context(store: Storage) {
   val blocks = TrieMap[B, Block]()
 
   def get(id: B): Option[Block] = {
-    blocks.get(id).orElse(store.get(id))
+    blocks.get(id) match {
+      case None => store.get(id)
+      case block => block
+    }
   }
 
   def getLeaf(id: B): Option[Leaf] = {
-    blocks.get(id).map(_.asInstanceOf[Leaf])
+    get(id).map(_.asInstanceOf[Leaf])
   }
 
   def getMeta(id: B): Option[Meta] = {

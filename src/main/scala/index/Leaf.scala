@@ -2,10 +2,10 @@ package index
 
 import java.util.UUID
 
-class Leaf(val id: B,
+class Leaf(override val id: B,
            val MIN: Int,
            val MAX: Int,
-           val LIMIT: Int)(implicit val ord: Ordering[B]) extends Block {
+           val LIMIT: Int)(implicit val comp: Ordering[B]) extends Block {
 
   var keys = Array.empty[Tuple]
 
@@ -13,7 +13,7 @@ class Leaf(val id: B,
     if(start > end) return false -> start
 
     val pos = start + (end - start)/2
-    val c = ord.compare(k, keys(pos)._1)
+    val c = comp.compare(k, keys(pos)._1)
 
     if(c == 0) return true -> pos
     if(c < 0) return find(k, start, pos - 1)
@@ -35,9 +35,7 @@ class Leaf(val id: B,
   }
 
   def insert(k: B, v: B): (Boolean, Int) = {
-    if(k.length + v.length > MAX) {
-      return false -> 0
-    }
+    //if(isFull()) return false -> 0
 
     val (found, idx) = find(k, 0, length - 1)
 
@@ -46,40 +44,29 @@ class Leaf(val id: B,
     insertAt(k, v, idx)
   }
 
-  def calcMaxLen(data: Seq[Tuple], max: Int): (Int, Int) = {
+  def calcMaxLen(data: Seq[Tuple], max_size: Int): (Int, Int) = {
     var i = 0
-    val len = data.length
     var bytes = 0
+    val len = data.length
 
     while(i < len){
       val (k, v) = data(i)
-      val size = k.length + v.length
+      bytes += k.length + v.length
 
-      if(bytes + size > max) return bytes -> i
+      if(bytes > max_size) return bytes -> i
 
       i += 1
-      bytes += size
     }
 
     bytes -> i
   }
 
   def insert(data: Seq[Tuple]): (Boolean, Int) = {
-    if(isFull()) {
-      return false -> 0
-    }
+    //if(isFull()) return false -> 0
 
     val (_, len) = calcMaxLen(data, MAX - size)
 
-    if(len == 0) return false -> 0
-
     keys = keys ++ Array.ofDim[Tuple](len)
-
-    for(i<-0 until len){
-      val (k, _) = data(i)
-
-      if(find(k, 0, length - 1)._1) return false -> 0
-    }
 
     for(i<-0 until len){
       val (k, v) = data(i)
@@ -89,32 +76,15 @@ class Leaf(val id: B,
     true -> len
   }
 
-  def copy()(implicit ctx: Context): Leaf = {
-    if(ctx.blocks.isDefinedAt(id)) return this
-
-    val copy = new Leaf(UUID.randomUUID.toString.getBytes(), MIN, MAX, LIMIT)
-
-    ctx.blocks += copy.id -> copy
-    ctx.parents += copy.id -> ctx.parents(id)
-
-    copy.keys = Array.ofDim[Tuple](length)
-    copy.length = length
-    copy.size = size
-
-    for(i<-0 until length){
-      copy.keys(i) = keys(i)
-    }
-
-    copy
-  }
-
   def split()(implicit ctx: Context): Leaf = {
-    val right = new Leaf(UUID.randomUUID.toString.getBytes(), MIN, MAX, LIMIT)
+    val right = new Leaf(UUID.randomUUID.toString.getBytes, MIN, MAX, LIMIT)
 
     ctx.blocks += right.id -> right
 
     val half = size/2
-    val (bytes, len) = calcMaxLen(keys, half)
+    var (_, len) = calcMaxLen(keys, half)
+
+    assert(len > 0)
 
     right.keys = keys.slice(len, length)
     right.length = right.keys.length
@@ -127,15 +97,40 @@ class Leaf(val id: B,
     right
   }
 
-  override def max: Option[B] = Some(keys(length - 1)._1)
+  def copy()(implicit ctx: Context): Leaf = {
+    val copy = new Leaf(UUID.randomUUID.toString.getBytes, MIN, MAX, LIMIT)
 
-  override def isFull(): Boolean = size >= LIMIT
+    ctx.blocks += copy.id -> copy
+    ctx.parents += copy.id -> ctx.parents(id)
+
+    copy.length = length
+    copy.size = size
+
+    copy.keys = Array.ofDim[Tuple](length)
+
+    for(i<-0 until length){
+      copy.keys(i) = keys(i)
+    }
+
+    copy
+  }
+
+  override def max: Option[B] = {
+    if(isEmpty()) return None
+    Some(keys(length - 1)._1)
+  }
+
+  override def isFull(data: Seq[Tuple]): Boolean = {
+    val (k, v) = data(0)
+    val bytes = k.length + v.length
+
+    bytes + size >= LIMIT
+  }
+
   override def isEmpty(): Boolean = size == 0
-  override def hasMinimumSize(): Boolean = size >= MIN
 
   def inOrder(): Seq[Tuple] = {
     if(isEmpty()) return Seq.empty[Tuple]
     keys.slice(0, length)
   }
-
 }

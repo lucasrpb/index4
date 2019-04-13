@@ -1,5 +1,6 @@
 package index
 
+import java.util.UUID
 import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.atomic.AtomicReference
 
@@ -14,60 +15,61 @@ class MainSpec extends FlatSpec {
     override def compare(x: Array[Byte], y: Array[Byte]): Int = comp.compare(x, y)
   }
 
-  val MAX_VALUE = Int.MaxValue
-
   def test(): Unit = {
     val rand = ThreadLocalRandom.current()
 
-    val SIZE = 180//rand.nextInt(230, 1000)
-
-    val ref = new AtomicReference(Ref())
+    val SIZE = 64536//rand.nextInt(400, 2048)
 
     implicit val store = new MemoryStorage()
 
-    def insert(): (Boolean, Seq[Tuple]) = {
+    val ref = new AtomicReference[(Option[B], Int)]((None, 0))
+    var data = Seq.empty[Tuple]
+
+    def insert(): Unit = {
 
       val old = ref.get()
-      val index = new Index(old, SIZE)
+      val index = new Index(old._1, old._2, SIZE)
       var list = Seq.empty[Tuple]
 
-      val n = rand.nextInt(10, 200)
+      val n = rand.nextInt(10, 100)
 
       for(i<-0 until n){
-        val k = RandomStringUtils.randomAlphanumeric(1, 20).getBytes()//rand.nextInt(1, MAX_VALUE).toString.getBytes()
+        val k = RandomStringUtils.randomAlphanumeric(1, index.MAX_KEY_SIZE).getBytes()
+        val v = UUID.randomUUID.toString.getBytes()
 
-        //if(!list.exists{case (k1, _) => ord.equiv(k, k1)}){
-          list = list :+ k -> k
-        //}
+        if(!list.exists{case (k1, v) => ord.equiv(k, k1)}){
+          list = list :+ k -> v
+        }
       }
 
-      val (ok, len) = index.insert(list)
+      val (ok, _) = index.insert(list)
 
-      (ok && ref.compareAndSet(old, index.getRef()) && store.put(index.ctx.blocks)) -> list
+      if(ok && ref.compareAndSet(old, (index.root, index.size))){
+        data = data ++ list
+        store.put(index.ctx.blocks)
+      } else {
+        println(s"ERROR !!!\n")
+      }
     }
 
-    var data = Seq.empty[Tuple]
     val n = 10
 
     for(i<-0 until n){
-      insert() match {
-        case (true, list) => data = data ++ list
-        case _ =>
-      }
+      insert()
     }
 
     val ldata = data.sortBy(_._1).map{case (k, v) => new String(k)}
-    val idata = Query.inOrder(ref.get().root).map{case (k, v) => new String(k)}
+    val idata = Query.inOrder(ref.get()._1).map{case (k, v) => new String(k)}
 
-    println(s"ldata ${ldata}\n")
-    println(s"idata ${idata}\n")
+    println(s"list data $ldata size ${ldata.size}\n")
+    println(s"index data ${idata} size ${idata.size}\n")
 
     assert(idata.equals(ldata))
   }
 
   "index data " must "be equal to list data" in {
 
-    val n = 1000
+    val n = 1
 
     for(i<-0 until n){
       test()
