@@ -47,8 +47,6 @@ class MainSpec extends FlatSpec {
       if(ok && ref.compareAndSet(old, (index.root, index.size))){
         data = data ++ list
         store.put(index.ctx.blocks)
-      } else {
-        println(s"ERROR !!!\n")
       }
     }
 
@@ -61,7 +59,7 @@ class MainSpec extends FlatSpec {
     val ldata = data.sortBy(_._1).map{case (k, v) => new String(k)}
     val idata = Query.inOrder(ref.get()._1).map{case (k, v) => new String(k)}
 
-    println(s"SIZE ${SIZE} MAX ${SIZE/8 - BLOCK_ID_SIZE}\n")
+    println(s"SIZE ${SIZE}\n")
     println(s"list data $ldata size ${ldata.size}\n")
     println(s"index data ${idata} size ${idata.size}\n")
 

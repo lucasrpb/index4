@@ -1,16 +1,21 @@
 package index
 
 import java.util.UUID
+import java.util.concurrent.ThreadLocalRandom
 
 class Index(var root: Option[B],
             var size: Int,
             val SIZE: Int)(implicit ord: Ordering[B], store: Storage) {
 
-  val MIN = SIZE/3
-  val MAX = SIZE
-  val LIMIT = 2 * MIN
+  val MAX_KEY_SIZE = SIZE/4 - BLOCK_ID_SIZE//ThreadLocalRandom.current().nextInt(10, 100)
 
-  val MAX_KEY_SIZE = SIZE/8 - BLOCK_ID_SIZE
+  assert(MAX_KEY_SIZE > 0)
+
+  val MIN = SIZE/4
+  val MAX = SIZE
+  val LIMIT = 3 * MIN
+
+  println(s"MIN $MIN MAX $MAX LIMIT $LIMIT MAX_KEY_SIZE $MAX_KEY_SIZE\n")
 
   implicit val ctx = new Context(store)
 

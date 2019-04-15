@@ -9,6 +9,9 @@ class Meta(override val id: B,
 
   var pointers = Array.empty[Tuple]
 
+  def size = pointers.map{case (k, v) => k.length + v.length}.sum
+  def length = pointers.length
+
   def find(k: B, start: Int, end: Int): (Boolean, Int) = {
     if(start > end) return false -> start
 
@@ -41,14 +44,17 @@ class Meta(override val id: B,
   }
 
   def insertAt(k: B, v: B, idx: Int): (Boolean, Int) = {
+
+    pointers = pointers ++ Array.ofDim[Tuple](1)
+
     for(i<-length until idx by -1){
       pointers(i) = pointers(i - 1)
     }
 
     pointers(idx) = k -> v
 
-    size += k.length + v.length
-    length += 1
+    //size += k.length + v.length
+    //length += 1
 
     true -> idx
   }
@@ -85,13 +91,18 @@ class Meta(override val id: B,
 
     val (_, len) = calcMaxLen(data, MAX - size)
 
-    pointers = pointers ++ Array.ofDim[Tuple](len)
+    assert(len > 0)
 
-    for(i<-0 until len){
+    //val len = Math.min(data.length, MAX - length)
+
+    /*for(i<-0 until len){
       val (k, v) = data(i)
       if(!insert(k, v)._1) return false -> 0
-    }
+    }*/
 
+    pointers = pointers ++ data.slice(0, len)
+    pointers = pointers.sortBy(_._1)
+    
     setPointers()
 
     true -> len
@@ -102,22 +113,21 @@ class Meta(override val id: B,
 
     ctx.blocks += right.id -> right
 
-    val half = size/2
-    //var (_, len) = calcMaxLen(pointers, half)
+    var (_, len) = calcMaxLen(pointers, size/2)
 
-    val len = length/2
+    //println(s"sizes meta ${sizes} half: $half\n")
 
     assert(len > 0)
 
     right.pointers = pointers.slice(len, length)
-    right.length = right.pointers.length
-    right.size = right.pointers.map{case (k, v) => k.length + v.length}.sum
+   // right.length = right.pointers.length
+   // right.size = right.pointers.map{case (k, v) => k.length + v.length}.sum
 
     right.setPointers()
 
     pointers = pointers.slice(0, len)
-    length = pointers.length
-    size = pointers.map{case (k, v) => k.length + v.length}.sum
+   // length = pointers.length
+   // size = pointers.map{case (k, v) => k.length + v.length}.sum
 
     setPointers()
 
@@ -133,8 +143,8 @@ class Meta(override val id: B,
     ctx.blocks += copy.id -> copy
     ctx.parents += copy.id -> ctx.parents(id)
 
-    copy.length = length
-    copy.size = size
+    //copy.length = length
+    //copy.size = size
 
     copy.pointers = Array.ofDim[Tuple](length)
 
@@ -157,12 +167,20 @@ class Meta(override val id: B,
     val bytes = k.length + v.length
 
     bytes + size >= LIMIT
+
+    //length == MAX
   }
 
   override def isEmpty(): Boolean = size == 0
 
   def inOrder(): Seq[Tuple] = {
     if(isEmpty()) return Seq.empty[Tuple]
-    pointers.slice(0, length)
+    //pointers.slice(0, length)
+
+    pointers
   }
+
+  override def toString: String = inOrder().map{case (k, _) => new String(k)}.toString()
+
+  def sizes() = inOrder().map{case (k, v) => k.length + v.length}
 }

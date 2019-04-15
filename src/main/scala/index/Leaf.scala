@@ -9,6 +9,9 @@ class Leaf(override val id: B,
 
   var keys = Array.empty[Tuple]
 
+  def size = keys.map{case (k, v) => k.length + v.length}.sum
+  def length = keys.length
+
   def find(k: B, start: Int, end: Int): (Boolean, Int) = {
     if(start > end) return false -> start
 
@@ -22,14 +25,17 @@ class Leaf(override val id: B,
   }
 
   def insertAt(k: B, v: B, idx: Int): (Boolean, Int) = {
+
+    keys = keys ++ Array.ofDim[Tuple](1)
+
     for(i<-length until idx by -1){
       keys(i) = keys(i - 1)
     }
 
     keys(idx) = k -> v
 
-    size += k.length + v.length
-    length += 1
+    //size += k.length + v.length
+    //length += 1
 
     true -> idx
   }
@@ -66,12 +72,17 @@ class Leaf(override val id: B,
 
     val (_, len) = calcMaxLen(data, MAX - size)
 
-    keys = keys ++ Array.ofDim[Tuple](len)
+    //val len = Math.min(data.length, MAX - length)
 
-    for(i<-0 until len){
+    /*for(i<-0 until len){
       val (k, v) = data(i)
       if(!insert(k, v)._1) return false -> 0
-    }
+    }*/
+
+    assert(len > 0)
+
+    keys = keys ++ data.slice(0, len)
+    keys = keys.sortBy(_._1)
 
     true -> len
   }
@@ -81,20 +92,19 @@ class Leaf(override val id: B,
 
     ctx.blocks += right.id -> right
 
-    val half = size/2
-    //var (_, len) = calcMaxLen(keys, half)
+    var (_, len) = calcMaxLen(keys, size/2)
 
-    val len = length/2
+    //println(s"sizes ${sizes} half: $half\n")
 
     assert(len > 0)
 
     right.keys = keys.slice(len, length)
-    right.length = right.keys.length
-    right.size = right.keys.map{case (k, v) => k.length + v.length}.sum
+    //right.length = right.keys.length
+    //right.size = right.keys.map{case (k, v) => k.length + v.length}.sum
 
     keys = keys.slice(0, len)
-    length = keys.length
-    size = keys.map{case (k, v) => k.length + v.length}.sum
+    //length = keys.length
+    //size = keys.map{case (k, v) => k.length + v.length}.sum
 
     right
   }
@@ -107,8 +117,8 @@ class Leaf(override val id: B,
     ctx.blocks += copy.id -> copy
     ctx.parents += copy.id -> ctx.parents(id)
 
-    copy.length = length
-    copy.size = size
+    //copy.length = length
+    //copy.size = size
 
     copy.keys = Array.ofDim[Tuple](length)
 
@@ -129,12 +139,18 @@ class Leaf(override val id: B,
     val bytes = k.length + v.length
 
     bytes + size >= LIMIT
+
+    //length == MAX
   }
 
   override def isEmpty(): Boolean = size == 0
 
   def inOrder(): Seq[Tuple] = {
     if(isEmpty()) return Seq.empty[Tuple]
-    keys.slice(0, length)
+    //keys.slice(0, length)
+    keys
   }
+
+  override def toString: String = inOrder().map{case (k, _) => new String(k)}.toString()
+  def sizes() = inOrder().map{case (k, v) => k.length + v.length}
 }
